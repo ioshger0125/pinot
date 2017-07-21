@@ -56,7 +56,10 @@ public abstract class QueryScheduler {
   protected volatile boolean isRunning = false;
 
   /**
-   * Constructor to initialize QueryScheduler based on scheduler configuration.
+   * Constructor to initialize QueryScheduler
+   * @param queryExecutor QueryExecutor engine to use
+   * @param resourceManager for managing server thread resources
+   * @param serverMetrics server metrics collector
    */
   public QueryScheduler(@Nonnull QueryExecutor queryExecutor, @Nonnull ResourceManager resourceManager,
       @Nonnull ServerMetrics serverMetrics) {
@@ -69,6 +72,12 @@ public abstract class QueryScheduler {
     this.queryExecutor = queryExecutor;
   }
 
+  /**
+   * Submit a query for execution. The query will be scheduled for execution as per the scheduling algorithm
+   * @param queryRequest query to schedule for execution
+   * @return Listenable future for query result representing serialized response. It is possible that the
+   *    future may return immediately or be scheduled for execution at a later time.
+   */
   public abstract @Nonnull ListenableFuture<byte[]> submit(@Nullable ServerQueryRequest queryRequest);
 
   /**
@@ -91,17 +100,21 @@ public abstract class QueryScheduler {
     isRunning = false;
   }
 
+
   @VisibleForTesting
   public ExecutorService getQueryWorkers() {
     return resourceManager.getQueryWorkers();
   }
 
-  public @Nonnull QueryExecutor getQueryExecutor() {
-    return queryExecutor;
-  }
-
-  protected ListenableFutureTask<byte[]> createQueryFutureTask(final ServerQueryRequest request,
-      final QueryExecutorService e) {
+  /**
+   * Create a future task for the query
+   * @param request incoming query request
+   * @param e executor service to use for parallelizing query. This is passed to the QueryExecutor
+   * @return Future task that can be scheduled for execution on an ExecutorService. Ideally, this future
+   * should be executed on a different executor service than {@code e} to avoid deadlock.
+   */
+  protected ListenableFutureTask<byte[]> createQueryFutureTask(@Nonnull final ServerQueryRequest request,
+      @Nonnull final QueryExecutorService e) {
     return ListenableFutureTask.create(new Callable<byte[]>() {
       @Override
       public byte[] call()
@@ -111,7 +124,13 @@ public abstract class QueryScheduler {
     });
   }
 
-  protected byte[] processQueryAndSerialize(final ServerQueryRequest request, final ExecutorService e) {
+  /**
+   * Process query and serialize response
+   * @param request incoming query request
+   * @param e Executor service to use for parallelizing query processing
+   * @return serialized query response
+   */
+  protected byte[] processQueryAndSerialize(@Nonnull final ServerQueryRequest request, @Nonnull final ExecutorService e) {
     DataTable result;
     try {
       result = queryExecutor.processQuery(request, e);
@@ -144,7 +163,14 @@ public abstract class QueryScheduler {
     return (val == null) ? "" : val;
   }
 
-  public static byte[] serializeDataTable(ServerQueryRequest queryRequest, DataTable instanceResponse) {
+  /**
+   * Serialize the DataTable response for query request
+   * @param queryRequest Server query request for which response is serialized
+   * @param instanceResponse DataTable to serialize
+   * @return serialized response bytes
+   */
+  public static byte[] serializeDataTable(@Nonnull ServerQueryRequest queryRequest, @Nonnull DataTable instanceResponse) {
+
     byte[] responseByte;
 
     InstanceRequest instanceRequest = queryRequest.getInstanceRequest();
@@ -175,6 +201,12 @@ public abstract class QueryScheduler {
     return responseByte;
   }
 
+  /**
+   * Error response future in case of internal error where query response is not available. This can happen
+   * if the query can not be executed or
+   * @param queryRequest
+   * @return
+   */
   protected ListenableFuture<byte[]> internalErrorResponse(ServerQueryRequest queryRequest) {
     DataTable result = new DataTableImplV2();
     result.addException(QueryException.INTERNAL_ERROR);
