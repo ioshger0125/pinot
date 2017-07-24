@@ -16,6 +16,7 @@
 
 package com.linkedin.pinot.core.query.scheduler.tokenbucket;
 
+import com.google.common.base.Preconditions;
 import com.linkedin.pinot.core.query.scheduler.SchedulerGroupAccountant;
 import com.linkedin.pinot.core.query.scheduler.SchedulerGroup;
 import com.linkedin.pinot.core.query.scheduler.SchedulerQueryContext;
@@ -74,6 +75,10 @@ public class SchedulerTokenGroup implements SchedulerGroup {
   private AtomicInteger reservedThreads = new AtomicInteger(0);
 
   SchedulerTokenGroup(String schedGroupName, int numTokensPerMs, int tokenLifetimeMs) {
+    Preconditions.checkNotNull(schedGroupName);
+    Preconditions.checkArgument(numTokensPerMs > 0);
+    Preconditions.checkArgument(tokenLifetimeMs > 0);
+
     this.schedGroupName = schedGroupName;
     this.numTokensPerMs = numTokensPerMs;
     this.tokenLifetimeMs = tokenLifetimeMs;
@@ -200,6 +205,49 @@ public class SchedulerTokenGroup implements SchedulerGroup {
     }
   }
 
+  /**
+   * Compares priority of this group with respect to another scheduler group.
+   * Priority is compared on the basis of available tokens. SchedulerGroup with
+   * higher number of tokens wins. If both groups have same tokens then the group
+   * with earliest waiting job has higher priority (FCFS if tokens are equal).
+   * If the arrival times of first waiting jobs are also equal then the group
+   * with least reserved resources is selected
+   * @param rhs SchedulerGroupAccount to compare with
+   * @return < 0 if lhs has lower priority than rhs
+   *     > 0 if lhs has higher priority than rhs
+   *     = 0 if lhs has same priority as rhs
+   */
+  @Override
+  public int compareTo(SchedulerGroupAccountant rhs) {
+    if (rhs == null) {
+      return 1;
+    }
+
+    if (this == rhs) {
+      return 0;
+    }
+
+    int leftTokens = getAvailableTokens();
+    int rightTokens = ((SchedulerTokenGroup) rhs).getAvailableTokens();
+    if (leftTokens > rightTokens) {
+      return 1;
+    }
+    if (leftTokens < rightTokens) {
+      return -1;
+    }
+
+    return compareArrivalTimes(((SchedulerTokenGroup) rhs));
+  }
+
+  public String toString() {
+    return String.format(" {%s:[%d,%d,%d,%d,%d]},", name(),
+        getAvailableTokens(),
+        numPending(),
+        numRunning(),
+        getThreadsInUse(),
+        totalReservedThreads());
+  }
+
   // callers must synchronize access to this method
   private void consumeTokens() {
     // TODO: make this getCurrentTime for mocking in tests
@@ -236,40 +284,6 @@ public class SchedulerTokenGroup implements SchedulerGroup {
   private void decrementThreadsInternal() {
     consumeTokens();
     --threadsInUse;
-  }
-
-  /**
-   * Compares priority of this group with respect to another scheduler group.
-   * Priority is compared on the basis of available tokens. SchedulerGroup with
-   * higher number of tokens wins. If both groups have same tokens then the group
-   * with earliest waiting job has higher priority (FCFS if tokens are equal).
-   * If the arrival times of first waiting jobs are also equal then the group
-   * with least reserved resources is selected
-   * @param rhs SchedulerGroupAccount to compare with
-   * @return < 0 if lhs has lower priority than rhs
-   *     > 0 if lhs has higher priority than rhs
-   *     = 0 if lhs has same priority as rhs
-   */
-  @Override
-  public int compareTo(SchedulerGroupAccountant rhs) {
-    if (rhs == null) {
-      return 1;
-    }
-
-    if (this == rhs) {
-      return 0;
-    }
-
-    int leftTokens = getAvailableTokens();
-    int rightTokens = ((SchedulerTokenGroup) rhs).getAvailableTokens();
-    if (leftTokens > rightTokens) {
-      return 1;
-    }
-    if (leftTokens < rightTokens) {
-      return -1;
-    }
-
-    return compareArrivalTimes(((SchedulerTokenGroup) rhs));
   }
 
   private int compareArrivalTimes(SchedulerTokenGroup rhs) {

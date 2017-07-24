@@ -22,6 +22,11 @@ package com.linkedin.pinot.core.query.scheduler;
  */
 public interface SchedulerGroup extends SchedulerGroupAccountant {
   /**
+   * Provides scheduler group name
+   */
+  String name();
+
+  /**
    * Appends the query to the list of pending queries
    */
   void addLast(SchedulerQueryContext query);
@@ -57,5 +62,4 @@ public interface SchedulerGroup extends SchedulerGroupAccountant {
    * Number of running queries
    */
   int numRunning();
-
 }

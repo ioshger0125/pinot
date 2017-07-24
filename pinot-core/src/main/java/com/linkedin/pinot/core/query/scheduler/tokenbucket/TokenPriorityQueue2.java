@@ -16,25 +16,6 @@
 
 package com.linkedin.pinot.core.query.scheduler.tokenbucket;
 
-import com.google.common.base.Preconditions;
-import com.linkedin.pinot.common.query.ServerQueryRequest;
-import com.linkedin.pinot.core.query.scheduler.OutOfCapacityError;
-import com.linkedin.pinot.core.query.scheduler.resources.ResourceManager;
-import com.linkedin.pinot.core.query.scheduler.SchedulerPriorityQueue;
-import com.linkedin.pinot.core.query.scheduler.SchedulerQueryContext;
-import com.linkedin.pinot.core.query.scheduler.TableBasedGroupMapper;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import javax.annotation.Nonnull;
-import org.apache.commons.configuration.Configuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-
 /**
  * Priority queues of scheduler groups that determines query priority based on tokens
  *
@@ -45,9 +26,10 @@ import org.slf4j.LoggerFactory;
  * is selected for execution.
  *
  */
-public class TokenPriorityQueue implements SchedulerPriorityQueue {
+/*
+public class TokenPriorityQueue2 implements SchedulerPriorityQueue {
 
-  private static Logger LOGGER = LoggerFactory.getLogger(TokenPriorityQueue.class);
+  private static Logger LOGGER = LoggerFactory.getLogger(TokenPriorityQueue2.class);
   public static final String TOKENS_PER_MS_KEY = "tokens_per_ms";
   public static final String TOKEN_LIFETIME_MS_KEY = "token_lifetime_ms";
   private static final String QUERY_DEADLINE_SECONDS_KEY = "query_deadline_seconds";
@@ -69,7 +51,7 @@ public class TokenPriorityQueue implements SchedulerPriorityQueue {
   private final TableBasedGroupMapper groupSelector;
   private final int queryDeadlineMillis;
 
-  public TokenPriorityQueue(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager) {
+  public TokenPriorityQueue2(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(resourceManager);
 
@@ -123,10 +105,12 @@ public class TokenPriorityQueue implements SchedulerPriorityQueue {
     return groupContext;
   }
 
-  /**
+  */
+/**
    * Blocking call to read the next query in order of priority
    * @return
-   */
+   *//*
+
   @Override
   public @Nonnull SchedulerQueryContext take() {
     queueLock.lock();
@@ -210,4 +194,5 @@ public class TokenPriorityQueue implements SchedulerPriorityQueue {
     return query;
   }
 }
+*/
 

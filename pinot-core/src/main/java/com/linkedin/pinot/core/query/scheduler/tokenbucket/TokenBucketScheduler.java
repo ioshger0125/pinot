@@ -16,41 +16,20 @@
 
 package com.linkedin.pinot.core.query.scheduler.tokenbucket;
 
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.linkedin.pinot.common.metrics.ServerMeter;
-import com.linkedin.pinot.common.metrics.ServerMetrics;
-import com.linkedin.pinot.common.metrics.ServerQueryPhase;
-import com.linkedin.pinot.common.query.QueryExecutor;
-import com.linkedin.pinot.common.query.ServerQueryRequest;
-import com.linkedin.pinot.core.query.scheduler.OutOfCapacityError;
-import com.linkedin.pinot.core.query.scheduler.QueryScheduler;
-import com.linkedin.pinot.core.query.scheduler.SchedulerQueryContext;
-import com.linkedin.pinot.core.query.scheduler.resources.PolicyBasedResourceManager;
-import com.linkedin.pinot.core.query.scheduler.resources.QueryExecutorService;
-import java.util.concurrent.Semaphore;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import org.apache.commons.configuration.Configuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-
 /**
  * Schedules queries from a SchedulerGroup with highest number of tokens on priority
  */
+/*
 public class TokenBucketScheduler extends QueryScheduler {
   private static Logger LOGGER = LoggerFactory.getLogger(TokenBucketScheduler.class);
 
-  private final TokenPriorityQueue queryQueue;
+  private final TokenPriorityQueue2 queryQueue;
   private final Semaphore runningQueriesSemaphore;
 
   public TokenBucketScheduler(@Nonnull Configuration config, QueryExecutor queryExecutor,
       ServerMetrics serverMetrics) {
     super(queryExecutor, new PolicyBasedResourceManager(config), serverMetrics);
-    queryQueue = new TokenPriorityQueue(config, resourceManager);
+    queryQueue = new TokenPriorityQueue2(config, resourceManager);
     runningQueriesSemaphore = new Semaphore(resourceManager.getNumQueryRunnerThreads());
   }
 
@@ -122,3 +101,4 @@ public class TokenBucketScheduler extends QueryScheduler {
     return "PriorityTokenBucketScheduler";
   }
 }
+*/

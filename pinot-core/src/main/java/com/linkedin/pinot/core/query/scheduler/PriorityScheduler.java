@@ -40,11 +40,11 @@ import org.slf4j.LoggerFactory;
 public abstract class PriorityScheduler extends QueryScheduler {
   private static Logger LOGGER = LoggerFactory.getLogger(PriorityScheduler.class);
 
-  private final PriorityQueue queryQueue;
+  private final SchedulerPriorityQueue queryQueue;
   private final Semaphore runningQueriesSemaphore;
 
   public PriorityScheduler(@Nonnull ResourceManager resourceManager, @Nonnull QueryExecutor queryExecutor,
-      @Nonnull PriorityQueue queue, @Nonnull ServerMetrics metrics) {
+      @Nonnull SchedulerPriorityQueue queue, @Nonnull ServerMetrics metrics) {
     super(queryExecutor, resourceManager, metrics);
     Preconditions.checkNotNull(queue);
     this.queryQueue = queue;
@@ -86,8 +86,8 @@ public abstract class PriorityScheduler extends QueryScheduler {
           try {
             final SchedulerQueryContext request = queryQueue.take();
             ServerQueryRequest queryRequest = request.getQueryRequest();
-            final QueryExecutorService executor = resourceManager
-                .getExecutorService(queryRequest, request.getSchedulerGroup());
+            final QueryExecutorService executor = resourceManager.getExecutorService(queryRequest,
+                request.getSchedulerGroup());
             final ListenableFutureTask<byte[]> queryFutureTask = createQueryFutureTask(queryRequest, executor);
             queryFutureTask.addListener(new Runnable() {
               @Override

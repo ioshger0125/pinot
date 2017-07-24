@@ -19,7 +19,6 @@ package com.linkedin.pinot.core.query.scheduler;
 import com.google.common.base.Preconditions;
 import com.linkedin.pinot.common.query.ServerQueryRequest;
 import com.linkedin.pinot.core.query.scheduler.resources.ResourceManager;
-import com.linkedin.pinot.core.query.scheduler.tokenbucket.SchedulerTokenGroup;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -45,42 +44,42 @@ import org.slf4j.LoggerFactory;
 public class PriorityQueue implements SchedulerPriorityQueue {
 
   private static Logger LOGGER = LoggerFactory.getLogger(PriorityQueue.class);
-  public static final String TOKENS_PER_MS_KEY = "tokens_per_ms";
-  public static final String TOKEN_LIFETIME_MS_KEY = "token_lifetime_ms";
   private static final String QUERY_DEADLINE_SECONDS_KEY = "query_deadline_seconds";
   private static final String MAX_PENDING_PER_GROUP_KEY = "max_pending_per_group";
   private static final String QUEUE_WAKEUP_MICROS = "queue_wakeup_micros";
 
-  private static final int DEFAULT_TOKEN_LIFETIME_MS = 100;
   private static final int DEFAULT_WAKEUP_MICROS = 1000;
 
   private static int wakeUpTimeMicros = DEFAULT_WAKEUP_MICROS;
+  private final int maxPendingPerGroup;
 
-  private final Map<String, SchedulerTokenGroup> schedulerGroups = new HashMap<>();
+  private final Map<String, SchedulerGroup> schedulerGroups = new HashMap<>();
   private final Lock queueLock = new ReentrantLock();
   private final Condition queryReaderCondition = queueLock.newCondition();
-  private final int tokenLifetimeMs;
-  private final int tokensPerMs;
-  private final int maxPendingPerGroup;
   private final ResourceManager resourceManager;
-  private final TableBasedGroupMapper groupSelector;
+  private final SchedulerGroupMapper groupSelector;
   private final int queryDeadlineMillis;
+  private final SchedulerGroupFactory groupFactory;
+  private final Configuration config;
 
-  public PriorityQueue(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager) {
+
+  public PriorityQueue(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager,
+      @Nonnull  SchedulerGroupFactory groupFactory,
+      @Nonnull SchedulerGroupMapper groupMapper) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(resourceManager);
+    Preconditions.checkNotNull(groupFactory);
+    Preconditions.checkNotNull(groupMapper);
 
     // max available tokens per millisecond equals number of threads (total execution capacity)
     // we are over provisioning tokens here because its better to keep pipe full rather than empty
-    int maxTokensPerMs = resourceManager.getNumQueryRunnerThreads() + resourceManager.getNumQueryWorkerThreads();
-    tokensPerMs = config.getInt(TOKENS_PER_MS_KEY, maxTokensPerMs);
-    tokenLifetimeMs = config.getInt(TOKEN_LIFETIME_MS_KEY, DEFAULT_TOKEN_LIFETIME_MS);
     queryDeadlineMillis = config.getInt(QUERY_DEADLINE_SECONDS_KEY, 30) * 1000;
-    maxPendingPerGroup = config.getInt(MAX_PENDING_PER_GROUP_KEY, 10);
     wakeUpTimeMicros = config.getInt(QUEUE_WAKEUP_MICROS, DEFAULT_WAKEUP_MICROS);
+    maxPendingPerGroup = config.getInt(MAX_PENDING_PER_GROUP_KEY, 10);
+    this.config = config;
     this.resourceManager = resourceManager;
-    // TODO: This should be wired in based on configuration in future
-    this.groupSelector = new TableBasedGroupMapper();
+    this.groupFactory = groupFactory;
+    this.groupSelector = groupMapper;
   }
 
   @Override
@@ -89,7 +88,7 @@ public class PriorityQueue implements SchedulerPriorityQueue {
     queueLock.lock();
     String groupName = groupSelector.getSchedulerGroupName(query);
     try {
-      SchedulerTokenGroup groupContext = getOrCreateGroupContext(groupName);
+      SchedulerGroup groupContext = getOrCreateGroupContext(groupName);
       checkGroupHasCapacity(groupContext);
       query.setSchedulerGroupContext(groupContext);
       groupContext.addLast(query);
@@ -99,7 +98,7 @@ public class PriorityQueue implements SchedulerPriorityQueue {
     }
   }
 
-  private void checkGroupHasCapacity(SchedulerTokenGroup groupContext) throws OutOfCapacityError {
+  private void checkGroupHasCapacity(SchedulerGroup groupContext) throws OutOfCapacityError {
     if (groupContext.numPending() < maxPendingPerGroup &&
         groupContext.totalReservedThreads() < resourceManager.getTableThreadsHardLimit()) {
       return;
@@ -111,10 +110,10 @@ public class PriorityQueue implements SchedulerPriorityQueue {
             groupContext.totalReservedThreads(), resourceManager.getTableThreadsHardLimit()));
   }
 
-  public SchedulerTokenGroup getOrCreateGroupContext(String groupName) {
-    SchedulerTokenGroup groupContext = schedulerGroups.get(groupName);
+  public SchedulerGroup getOrCreateGroupContext(String groupName) {
+    SchedulerGroup groupContext = schedulerGroups.get(groupName);
     if (groupContext == null) {
-      groupContext = new SchedulerTokenGroup(groupName, tokensPerMs, tokenLifetimeMs);
+      groupContext = groupFactory.create(config, groupName);
       schedulerGroups.put(groupName, groupContext);
     }
     return groupContext;
@@ -145,22 +144,14 @@ public class PriorityQueue implements SchedulerPriorityQueue {
   }
 
   private SchedulerQueryContext takeNextInternal() {
-    int currentWinningTokens = Integer.MIN_VALUE;
-    SchedulerTokenGroup currentWinnerGroup = null;
+    SchedulerGroup currentWinnerGroup = null;
     long startTime = System.nanoTime();
     StringBuilder sb = new StringBuilder("SchedulerInfo:");
     long deadlineEpochMillis = System.currentTimeMillis() - queryDeadlineMillis;
-    for (Map.Entry<String, SchedulerTokenGroup> groupInfoEntry : schedulerGroups.entrySet()) {
-      SchedulerTokenGroup group = groupInfoEntry.getValue();
-      sb.append(String.format(" {%s:[%d,%d,%d,%d,%d]},", group.name(),
-          group.getAvailableTokens(),
-          group.numPending(),
-          group.numRunning(),
-          group.getThreadsInUse(),
-          group.totalReservedThreads()));
-      if (group.isEmpty() ||
-          group.getAvailableTokens() < currentWinningTokens ||
-          !resourceManager.canSchedule(group)) {
+    for (Map.Entry<String, SchedulerGroup> groupInfoEntry : schedulerGroups.entrySet()) {
+      SchedulerGroup group = groupInfoEntry.getValue();
+      sb.append(group.toString());
+      if (group.isEmpty() || !resourceManager.canSchedule(group)) {
         continue;
       }
       group.trimExpired(deadlineEpochMillis);
@@ -185,8 +176,7 @@ public class PriorityQueue implements SchedulerPriorityQueue {
       }
       if (comparison >= 0) {
         if (group.totalReservedThreads() < resourceManager.getTableThreadsSoftLimit() ||
-            (currentWinnerGroup.totalReservedThreads() > resourceManager.getTableThreadsSoftLimit() &&
-            group.totalReservedThreads() < currentWinnerGroup.totalReservedThreads())) {
+            group.totalReservedThreads() < currentWinnerGroup.totalReservedThreads()) {
           currentWinnerGroup = group;
         }
       }
@@ -203,7 +193,6 @@ public class PriorityQueue implements SchedulerPriorityQueue {
       query = currentWinnerGroup.removeFirst();
     }
     LOGGER.info(sb.toString());
-    long endTime = System.nanoTime();
     return query;
   }
 }

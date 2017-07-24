@@ -19,7 +19,7 @@ package com.linkedin.pinot.core.query.scheduler;
 import com.google.common.base.Preconditions;
 import com.linkedin.pinot.common.metrics.ServerMetrics;
 import com.linkedin.pinot.common.query.QueryExecutor;
-import com.linkedin.pinot.core.query.scheduler.tokenbucket.TokenBucketScheduler;
+import com.linkedin.pinot.core.query.scheduler.tokenbucket.TokenPriorityScheduler;
 import java.lang.reflect.Constructor;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,7 +57,7 @@ public class QuerySchedulerFactory {
       return new FCFSQueryScheduler(schedulerConfig, queryExecutor, serverMetrics);
     } else if (schedulerName.equals("tokenbucket")) {
       LOGGER.info("Using Priority Token Bucket scheduler");
-      return new TokenBucketScheduler(schedulerConfig, queryExecutor, serverMetrics);
+      return TokenPriorityScheduler.create(schedulerConfig, queryExecutor, serverMetrics);
     }
 
     // didn't find by name so try by classname
