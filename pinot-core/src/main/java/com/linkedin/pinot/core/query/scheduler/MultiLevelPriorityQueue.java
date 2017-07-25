@@ -147,7 +147,7 @@ public class MultiLevelPriorityQueue implements SchedulerPriorityQueue {
     SchedulerGroup currentWinnerGroup = null;
     long startTime = System.nanoTime();
     StringBuilder sb = new StringBuilder("SchedulerInfo:");
-    long deadlineEpochMillis = System.currentTimeMillis() - queryDeadlineMillis;
+    long deadlineEpochMillis = currentTimeMillis() - queryDeadlineMillis;
     for (Map.Entry<String, SchedulerGroup> groupInfoEntry : schedulerGroups.entrySet()) {
       SchedulerGroup group = groupInfoEntry.getValue();
       sb.append(group.toString());
@@ -194,6 +194,11 @@ public class MultiLevelPriorityQueue implements SchedulerPriorityQueue {
     }
     LOGGER.info(sb.toString());
     return query;
+  }
+
+  // separate method to allow mocking for unit testing
+  private long currentTimeMillis() {
+    return System.currentTimeMillis();
   }
 }
 

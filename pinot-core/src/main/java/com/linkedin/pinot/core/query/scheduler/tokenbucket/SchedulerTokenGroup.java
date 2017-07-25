@@ -82,7 +82,7 @@ public class SchedulerTokenGroup implements SchedulerGroup {
     this.schedGroupName = schedGroupName;
     this.numTokensPerMs = numTokensPerMs;
     this.tokenLifetimeMs = tokenLifetimeMs;
-    lastUpdateTimeMs = System.currentTimeMillis();
+    lastUpdateTimeMs = currentTimeMillis();
     availableTokens = numTokensPerMs * tokenLifetimeMs;
     lastTokenTimeMs = lastUpdateTimeMs;
   }
@@ -250,8 +250,7 @@ public class SchedulerTokenGroup implements SchedulerGroup {
 
   // callers must synchronize access to this method
   private void consumeTokens() {
-    // TODO: make this getCurrentTime for mocking in tests
-    long currentTimeMs = System.currentTimeMillis();
+    long currentTimeMs = currentTimeMillis();
     // multiple time qantas may have elapsed..hence, the modulo operation
     int diffMs = (int) (currentTimeMs - lastUpdateTimeMs);
     if (diffMs <= 0) {
@@ -296,5 +295,9 @@ public class SchedulerTokenGroup implements SchedulerGroup {
       return -1;
     }
     return 0;
+  }
+
+  private long currentTimeMillis() {
+    return System.currentTimeMillis();
   }
 }
