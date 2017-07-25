@@ -41,9 +41,9 @@ import org.slf4j.LoggerFactory;
  * is selected for execution.
  *
  */
-public class PriorityQueue implements SchedulerPriorityQueue {
+public class MultiLevelPriorityQueue implements SchedulerPriorityQueue {
 
-  private static Logger LOGGER = LoggerFactory.getLogger(PriorityQueue.class);
+  private static Logger LOGGER = LoggerFactory.getLogger(MultiLevelPriorityQueue.class);
   private static final String QUERY_DEADLINE_SECONDS_KEY = "query_deadline_seconds";
   private static final String MAX_PENDING_PER_GROUP_KEY = "max_pending_per_group";
   private static final String QUEUE_WAKEUP_MICROS = "queue_wakeup_micros";
@@ -63,7 +63,7 @@ public class PriorityQueue implements SchedulerPriorityQueue {
   private final Configuration config;
 
 
-  public PriorityQueue(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager,
+  public MultiLevelPriorityQueue(@Nonnull Configuration config, @Nonnull ResourceManager resourceManager,
       @Nonnull  SchedulerGroupFactory groupFactory,
       @Nonnull SchedulerGroupMapper groupMapper) {
     Preconditions.checkNotNull(config);

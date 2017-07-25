@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.linkedin.pinot.core.query.scheduler.tokenbucket;
+package com.linkedin.pinot.core.query.scheduler.fcfs;
 
 import com.linkedin.pinot.common.metrics.ServerMetrics;
 import com.linkedin.pinot.common.query.QueryExecutor;
@@ -21,47 +21,42 @@ import com.linkedin.pinot.core.query.scheduler.MultiLevelPriorityQueue;
 import com.linkedin.pinot.core.query.scheduler.PriorityScheduler;
 import com.linkedin.pinot.core.query.scheduler.SchedulerGroup;
 import com.linkedin.pinot.core.query.scheduler.SchedulerGroupFactory;
+import com.linkedin.pinot.core.query.scheduler.SchedulerPriorityQueue;
 import com.linkedin.pinot.core.query.scheduler.TableBasedGroupMapper;
 import com.linkedin.pinot.core.query.scheduler.resources.PolicyBasedResourceManager;
 import com.linkedin.pinot.core.query.scheduler.resources.ResourceManager;
 import javax.annotation.Nonnull;
 import org.apache.commons.configuration.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
- * Schedules queries from a SchedulerGroup with highest number of tokens on priority
+ * Per group FCFS algorithm with bounded resource management per group
  */
-public class TokenPriorityScheduler extends PriorityScheduler {
-  public static final String TOKENS_PER_MS_KEY = "tokens_per_ms";
-  public static final String TOKEN_LIFETIME_MS_KEY = "token_lifetime_ms";
-  private static final int DEFAULT_TOKEN_LIFETIME_MS = 100;
+public class BoundedFCFS extends PriorityScheduler {
+  private static Logger LOGGER = LoggerFactory.getLogger(BoundedFCFS.class);
 
-  public static TokenPriorityScheduler create(@Nonnull Configuration config, @Nonnull QueryExecutor queryExecutor,
-      @Nonnull ServerMetrics metrics) {
+  public static BoundedFCFS create(@Nonnull Configuration config, @Nonnull QueryExecutor queryExecutor,
+      @Nonnull ServerMetrics serverMetrics) {
     final ResourceManager rm = new PolicyBasedResourceManager(config);
-    final SchedulerGroupFactory groupFactory =  new SchedulerGroupFactory() {
+    final SchedulerGroupFactory groupFactory = new SchedulerGroupFactory() {
       @Override
       public SchedulerGroup create(Configuration config, String groupName) {
-        // max available tokens per millisecond equals number of threads (total execution capacity)
-        // we are over provisioning tokens here because its better to keep pipe full rather than empty
-        int maxTokensPerMs = rm.getNumQueryRunnerThreads() + rm.getNumQueryWorkerThreads();
-        int tokensPerMs = config.getInt(TOKENS_PER_MS_KEY, maxTokensPerMs);
-        int tokenLifetimeMs = config.getInt(TOKEN_LIFETIME_MS_KEY, DEFAULT_TOKEN_LIFETIME_MS);
-
-        return new SchedulerTokenGroup(groupName, tokensPerMs, tokenLifetimeMs);
+        return new FCFSGroup(groupName);
       }
     };
-
     MultiLevelPriorityQueue queue = new MultiLevelPriorityQueue(config, rm, groupFactory, new TableBasedGroupMapper());
-    return new TokenPriorityScheduler(rm, queryExecutor, queue, metrics);
+    return new BoundedFCFS(rm , queryExecutor, queue, serverMetrics);
   }
 
-  private TokenPriorityScheduler(@Nonnull ResourceManager resourceManager, @Nonnull QueryExecutor queryExecutor,
-      @Nonnull MultiLevelPriorityQueue queue, @Nonnull ServerMetrics metrics) {
+  private BoundedFCFS(@Nonnull ResourceManager resourceManager, @Nonnull QueryExecutor queryExecutor,
+      @Nonnull SchedulerPriorityQueue queue, @Nonnull ServerMetrics metrics) {
     super(resourceManager, queryExecutor, queue, metrics);
   }
 
   @Override
   public String name() {
-    return "TokenBucket";
+    return "BoundedFCFS";
   }
 }

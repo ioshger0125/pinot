@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.linkedin.pinot.core.query.scheduler;
+package com.linkedin.pinot.core.query.scheduler.fcfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,6 +23,7 @@ import com.linkedin.pinot.common.metrics.ServerMetrics;
 import com.linkedin.pinot.common.metrics.ServerQueryPhase;
 import com.linkedin.pinot.common.query.QueryExecutor;
 import com.linkedin.pinot.common.query.ServerQueryRequest;
+import com.linkedin.pinot.core.query.scheduler.QueryScheduler;
 import com.linkedin.pinot.core.query.scheduler.resources.QueryExecutorService;
 import com.linkedin.pinot.core.query.scheduler.resources.UnboundedResourceManager;
 import javax.annotation.Nonnull;
@@ -37,6 +38,7 @@ import org.apache.commons.configuration.Configuration;
  * This is similar to the existing query scheduling logic.
  */
 public class FCFSQueryScheduler extends QueryScheduler {
+
 
   public FCFSQueryScheduler(@Nonnull Configuration config, @Nonnull QueryExecutor queryExecutor,
       @Nonnull ServerMetrics serverMetrics) {
