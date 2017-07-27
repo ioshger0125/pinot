@@ -126,7 +126,7 @@ public class ControllerStarter {
       _helixTaskResourceManager = new PinotHelixTaskResourceManager(taskDriver);
 
       LOGGER.info("Starting task manager");
-      _taskManager = new PinotTaskManager(taskDriver, helixResourceManager, _helixTaskResourceManager);
+      _taskManager = new PinotTaskManager(taskDriver, helixResourceManager, _helixTaskResourceManager, config);
       _taskManager.ensureTaskQueuesExist();
       int taskManagerFrequencyInSeconds = config.getTaskManagerFrequencyInSeconds();
       if (taskManagerFrequencyInSeconds > 0) {
